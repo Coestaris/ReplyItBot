@@ -1,5 +1,6 @@
 import telegram
 import traceback
+import re
 
 import dbUser
 import db
@@ -27,8 +28,8 @@ def notify_admin(ex):
 def errorHandler(bot, update, error):
     print(error)
     try:
-        if(isinstance(update, NoneType)):
-            raise TypeError("Update was error. Error is: " + error)
+        if(update == None):
+            raise TypeError("Update was error. Error is: " + str(error))
         else:
             user = db.get_user(update.message.chat_id)
             update.message.reply_text(language.getLang(user.lang)["server_error"], reply_markup = { "remove_keyboard" : True })
@@ -75,8 +76,9 @@ def add(bot, update):
             reply_markup = { "remove_keyboard" : True },
             reply_to_message_id=update.message.message_id)
 
-        group.userActions[user.id] = WAITING_FOR_REGEX
-        db.store_user(group);    
+        group.userActions[user.id] = {}
+        group.userActions[user.id]["i"] = WAITING_FOR_REGEX
+        db.store_user(group)   
         pass    
 
     except Exception as ex:
@@ -95,7 +97,7 @@ def list(bot, update):
 WAITING_FOR_REGEX = 1
 WAITING_FOR_TRIGGER = 2
 
-def textInputHandler(bot, update):
+def allInputHandler(bot, update):
       
     try:
         group = db.get_user(update.message.chat_id)
@@ -104,11 +106,11 @@ def textInputHandler(bot, update):
 
         if(str(user.id) in group.userActions):
             
-            if(group.userActions[str(user.id)] == WAITING_FOR_REGEX):
+            if(group.userActions[str(user.id)]["i"] == WAITING_FOR_REGEX):
                 
                 if(textMessage != '' and utils.isReValid(textMessage)):
 
-                    if(textMessage in [x["text"] for x in group.triggers]):
+                    if(textMessage in [ x["text"] for x in group.triggers]):
                         bot.send_message(chat_id=update.message.chat_id, 
                             text=utils.escape_string(language.getLang(group.lang)["err_same_regex_exists"].format(textMessage)),
                             reply_markup = { "remove_keyboard" : True },
@@ -119,7 +121,8 @@ def textInputHandler(bot, update):
                         db.store_user(group)
                         return
 
-                    group.userActions[str(user.id)] = WAITING_FOR_TRIGGER
+                    group.userActions[str(user.id)]["r"] = textMessage
+                    group.userActions[str(user.id)]["i"] = WAITING_FOR_TRIGGER
                     bot.send_message(chat_id=update.message.chat_id, 
                         text=language.getLang(group.lang)["add_enter_sendTrigger"],
                         reply_markup = { "remove_keyboard" : True },
@@ -138,16 +141,56 @@ def textInputHandler(bot, update):
                     db.store_user(group)
                     return
 
-            elif(group.userActions[str(user.id)] == WAITING_FOR_TRIGGER):
+            elif(group.userActions[str(user.id)]["i"] == WAITING_FOR_TRIGGER):
                 
                 if(update.message.caption != None):
-                    textMessage += update.message.caption
+                    textMessage = update.message.caption
 
-                if(update.message.photo != None):
-                    #todo
+                attachment = None
+                if(update.message.photo != None and len(update.message.photo) != 0):
                     print update.message.photo
-                group.triggers.append( { "text" : textMessage, "attachments" : None } )
+                    attachment = {
+                        "file_id" : update.message.photo[-1].file_id,
+                        "type" : "photo"
+                    }
+                if(update.message.sticker != None):
+                    attachment = {
+                        "file_id" : update.message.sticker.file_id,
+                        "type" : "sticker"
+                    }
+                if(update.message.video != None):
+                    attachment = {
+                        "file_id" : update.message.video.file_id,
+                        "type" : "video"
+                    }
+                if(update.message.voice != None):
+                    attachment = {
+                        "file_id" : update.message.voice.file_id,
+                        "type" : "voice"
+                    }
+                if(update.message.video_note != None):
+                    attachment = {
+                        "file_id" : update.message.video_note.file_id,
+                    
+                        "type" : "video_note"
+                    }
+                if(update.message.document != None):
+                    attachment = {
+                        "file_id" : update.message.voice.document,
+                        "type" : "document"
+                    }
+                if(update.message.audio != None):
+                    attachment = {
+                        "file_id" : update.message.video_note.audio,
+                        "type" : "audio"
+                    }
+                if(update.message.animation != None):
+                    attachment = {
+                        "file_id" : update.message.video_note.animation,
+                        "type" : "animation"
+                    }
 
+                group.triggers.append( { "text" : group.userActions[str(user.id)]["r"], "attachment" : attachment, "caption" : textMessage } )
                 bot.send_message(chat_id=update.message.chat_id, 
                         text=utils.escape_string(language.getLang(group.lang)["add_ok"]),
                         reply_markup = { "remove_keyboard" : True },
@@ -162,7 +205,35 @@ def textInputHandler(bot, update):
                 pass
 
         else:
-            pass    
+            if(update.message.caption != None):
+                textMessage = update.message.caption
+
+            if(textMessage != None):
+
+                print "Not none"
+
+                for trigger in group.triggers:
+                    if(re.search(re.compile(trigger["text"]), textMessage)):
+
+                        if(trigger["attachment"] != None):
+                            if(trigger["attachment"]["type"] == "photo"):
+                                bot.send_photo(
+                                    chat_id=update.message.chat_id,
+                                    photo=trigger["attachment"]["file_id"],
+                                    reply_to_message_id=update.message.message_id,
+                                    caption=trigger["caption"])
+
+                            elif(trigger["attachment"]["type"] == "sticker"):
+                                 bot.send_sticker(
+                                    chat_id=update.message.chat_id,
+                                    sticker=trigger["attachment"]["file_id"],
+                                    reply_to_message_id=update.message.message_id)
+
+                        else:
+                            bot.send_message(chat_id=update.message.chat_id, 
+                                text=trigger["caption"],
+                                reply_markup = { "remove_keyboard" : True },
+                                reply_to_message_id=update.message.message_id)
 
     except Exception as ex:
         notify_admin(ex)

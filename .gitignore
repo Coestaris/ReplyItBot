@@ -60,3 +60,5 @@ target/
 \.vscode/sftp\.json
 
 cfg\.json
+
+src/db\.json

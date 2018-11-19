@@ -29,7 +29,8 @@ def main():
     #dp.add_handler(CommandHandler("adm_stat", getPosts))
     #dp.add_handler(CallbackQueryHandler(tgcore.callback_inline))
 
-    dp.add_handler(MessageHandler(Filters.text, tgcore.textInputHandler))
+    dp.add_handler(MessageHandler(Filters.all, tgcore.allInputHandler))
+
     dp.add_error_handler(tgcore.errorHandler)
 
     logger.log(logging.INFO, "Starting polling...")
