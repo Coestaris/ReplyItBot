@@ -1,4 +1,5 @@
 import json
+import re
 from functools import wraps
 
 import language
@@ -28,3 +29,10 @@ def send_action(action):
         return command_func
     
     return decorator
+
+def isReValid(regex):
+    try:
+        re.compile(regex)
+        return True
+    except re.error:
+        return False

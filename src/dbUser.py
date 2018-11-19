@@ -1,5 +1,5 @@
 class dbUser:
-    def __init__(self, teleid, lang = "ru", debugName = "-", triggers = [], userActions = []):
+    def __init__(self, teleid, lang = "ru", debugName = "-", triggers = [], userActions = {}):
         self.teleId = teleid
         self.lang = lang
         self.debugName = debugName
