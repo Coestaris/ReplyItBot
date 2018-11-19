@@ -171,7 +171,6 @@ def allInputHandler(bot, update):
                 if(update.message.video_note != None):
                     attachment = {
                         "file_id" : update.message.video_note.file_id,
-                    
                         "type" : "video_note"
                     }
                 if(update.message.document != None):
@@ -210,8 +209,6 @@ def allInputHandler(bot, update):
 
             if(textMessage != None):
 
-                print "Not none"
-
                 for trigger in group.triggers:
                     if(re.search(re.compile(trigger["text"]), textMessage)):
 
@@ -228,6 +225,46 @@ def allInputHandler(bot, update):
                                     chat_id=update.message.chat_id,
                                     sticker=trigger["attachment"]["file_id"],
                                     reply_to_message_id=update.message.message_id)
+
+                            elif(trigger["attachment"]["type"] == "video"):
+                                bot.send_video(
+                                    chat_id=update.message.chat_id,
+                                    video=trigger["attachment"]["file_id"],
+                                    reply_to_message_id=update.message.message_id,
+                                    caption=trigger["caption"])
+                            
+                            elif(trigger["attachment"]["type"] == "voice"):
+                                bot.send_voice(
+                                    chat_id=update.message.chat_id,
+                                    voice=trigger["attachment"]["file_id"],
+                                    reply_to_message_id=update.message.message_id)
+
+                            elif(trigger["attachment"]["type"] == "document"):
+                                bot.send_document(
+                                    chat_id=update.message.chat_id,
+                                    document=trigger["attachment"]["file_id"],
+                                    reply_to_message_id=update.message.message_id,
+                                    caption=trigger["caption"])
+                            
+                            elif(trigger["attachment"]["type"] == "video_note"):
+                                bot.send_video_note(
+                                    chat_id=update.message.chat_id,
+                                    video_note=trigger["attachment"]["file_id"],
+                                    reply_to_message_id=update.message.message_id)
+                            
+                            elif(trigger["attachment"]["type"] == "audio"):
+                                bot.send_audio(
+                                    chat_id=update.message.chat_id,
+                                    audio=trigger["attachment"]["file_id"],
+                                    reply_to_message_id=update.message.message_id,
+                                    caption=trigger["caption"])
+                            
+                            elif(trigger["attachment"]["type"] == "animation"):
+                                bot.send_animation(
+                                    chat_id=update.message.chat_id,
+                                    animation=trigger["attachment"]["file_id"],
+                                    reply_to_message_id=update.message.message_id,
+                                    caption=trigger["caption"])
 
                         else:
                             bot.send_message(chat_id=update.message.chat_id, 
