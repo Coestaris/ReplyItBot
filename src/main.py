@@ -25,9 +25,13 @@ def main():
     dp.add_handler(CommandHandler("add", tgcore.add))
     dp.add_handler(CommandHandler("list", tgcore.list))
 
-    #dp.add_handler(CommandHandler("adm_db_clear", getPosts))    
-    #dp.add_handler(CommandHandler("adm_stat", getPosts))
-    #dp.add_handler(CallbackQueryHandler(tgcore.callback_inline))
+    dp.add_handler(CommandHandler("disable", tgcore.disable))
+    dp.add_handler(CommandHandler("enable", tgcore.enable))
+    dp.add_handler(CommandHandler("remove", tgcore.remove))
+
+    dp.add_handler(CommandHandler("adm_dump", tgcore.adm_dump))    
+    dp.add_handler(CommandHandler("adm_drop", tgcore.adm_drop))    
+    dp.add_handler(CommandHandler("adm_stat", tgcore.adm_stat))
 
     dp.add_handler(MessageHandler(Filters.all, tgcore.allInputHandler))
 

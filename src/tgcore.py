@@ -1,6 +1,10 @@
 import telegram
 import traceback
 import re
+import time
+import os
+import psutil
+import json
 
 import dbUser
 import db
@@ -11,6 +15,10 @@ import language
 send_typing_action = utils.send_action(telegram.ChatAction.TYPING)
 send_upload_video_action = utils.send_action(telegram.ChatAction.UPLOAD_VIDEO)
 send_upload_photo_action = utils.send_action(telegram.ChatAction.UPLOAD_PHOTO)
+
+WAITING_FOR_REGEX = 1
+WAITING_FOR_TRIGGER = 2
+WAITING_FOR_EX_TRIGGER = 3
 
 bot = None
 
@@ -24,6 +32,67 @@ def notify_admin(ex):
                 utils.escape_string(traceback.format_exc())), 
             parse_mode = telegram.ParseMode.MARKDOWN)
     pass
+
+@send_typing_action
+@utils.restricted
+def adm_stat(bot, update):
+
+    try:
+        pid = os.getpid()
+        py = psutil.Process(pid)
+        mem = psutil.virtual_memory()
+
+        bot.send_message(
+            chat_id = update.message.chat_id, 
+            text = u"*CPU*: {}_%_\n\n*Mem*:\n_Total_: {}\n_Available_: {}\n_Free_: {}\n_Used_: {} ({}%)\n\n*Server uptime*: {}\n\n*Bot uptime*: {}"
+                .format(psutil.cpu_percent(), 
+                    utils.sizeof_fmt(mem.total), 
+                    utils.sizeof_fmt(mem.available), 
+                    utils.sizeof_fmt(mem.free), 
+                    utils.sizeof_fmt(mem.used), 
+                    mem.percent, 
+                    utils.display_time(time.time() - psutil.boot_time(), 5), 
+                    utils.display_time(time.time() - py.create_time(), 5)),
+            parse_mode = telegram.ParseMode.MARKDOWN,
+            reply_markup = { "remove_keyboard" : True })
+    
+    except Exception as ex:
+        notify_admin(ex)
+
+@send_typing_action
+@utils.restricted
+def adm_dump(bot, update):
+
+    try:
+        with open(db.dbFileName) as f:
+            data = json.load(f)
+
+            bot.send_message(
+                chat_id = update.message.chat_id, 
+                text = u"```json{{\n{}```".format(json.dumps(data, sort_keys=True, indent=2)),
+                parse_mode = telegram.ParseMode.MARKDOWN,
+                reply_markup = { "remove_keyboard" : True })
+        
+    except Exception as ex:
+        notify_admin(ex)
+
+
+@send_typing_action
+@utils.restricted
+def adm_drop(bot, update):
+
+    try:
+        os.remove(db.dbFileName)
+        db.reassign_db()
+        db.store_user(dbUser.dbUser(update.message.chat_id))
+
+        bot.send_message(
+            chat_id = update.message.chat_id, 
+            text = "Database dropped",
+            reply_markup = { "remove_keyboard" : True })
+
+    except Exception as ex:
+        notify_admin(ex)
 
 def errorHandler(bot, update, error):
     print(error)
@@ -55,6 +124,32 @@ def start(bot, update):
         notify_admin(ex)
 
 @send_typing_action
+def remove(bot, update):
+    
+    try:
+
+        group = db.get_user(update.message.chat_id)
+        user = update.message.from_user
+
+        custom_keyboard = []
+        for group in user.vkGroups:
+            custom_keyboard.append([telegram.KeyboardButton(text=u"{} - {}".format(group["id"], group["name"]))])
+
+
+        bot.send_message(chat_id=update.message.chat_id, 
+            text=language.getLang(group.lang)["remove_trigger"],
+            reply_markup = Key,
+            reply_to_message_id=update.message.message_id)
+
+        group.userActions[user.id] = {}
+        group.userActions[user.id]["i"] = WAITING_FOR_EX_TRIGGER
+        db.store_user(group)   
+        pass
+
+    except Exception as ex:
+        notify_admin(ex)
+
+@send_typing_action
 def help(bot, update):
     
     try:
@@ -66,7 +161,6 @@ def help(bot, update):
 
 @send_typing_action
 def add(bot, update):
-      
     try:
         group = db.get_user(update.message.chat_id)
         user = update.message.from_user
@@ -84,18 +178,81 @@ def add(bot, update):
     except Exception as ex:
         notify_admin(ex)
 
+
+@send_typing_action
+def enable(bot, update):
+    try:
+        group = db.get_user(update.message.chat_id)
+        if(group.enabled):
+            bot.send_message(chat_id=update.message.chat_id, 
+                text=language.getLang(group.lang)["err_bot_is_enabled"],
+                reply_markup = { "remove_keyboard" : True },
+                reply_to_message_id=update.message.message_id)
+            return
+        
+        group.enabled = True
+        db.store_user(group)   
+
+        bot.send_message(chat_id=update.message.chat_id, 
+            text=language.getLang(group.lang)["bot_enabled"],
+            reply_markup = { "remove_keyboard" : True },
+            reply_to_message_id=update.message.message_id)
+        return
+
+    except Exception as ex:
+        notify_admin(ex)
+
+@send_typing_action
+def disable(bot, update):
+    try:
+        group = db.get_user(update.message.chat_id)
+        if(not group.enabled):
+            bot.send_message(chat_id=update.message.chat_id, 
+                text=language.getLang(group.lang)["err_bot_is_disabled"],
+                reply_markup = { "remove_keyboard" : True },
+                reply_to_message_id=update.message.message_id)
+            return
+
+        group.enabled = False
+        db.store_user(group)
+
+        bot.send_message(chat_id=update.message.chat_id, 
+            text=language.getLang(group.lang)["bot_disabled"],
+            reply_markup = { "remove_keyboard" : True },
+            reply_to_message_id=update.message.message_id)
+        return
+
+    except Exception as ex:
+        notify_admin(ex)
+
 @send_typing_action
 def list(bot, update):
       
     try:
         user = db.get_user(update.message.chat_id)
-        pass    
+        if(len(user.triggers) == 0):
+            bot.send_message(chat_id=update.message.chat_id, 
+                text=language.getLang(user.lang)["list_is_empty"],
+                reply_markup = { "remove_keyboard" : True },
+                reply_to_message_id=update.message.message_id)
+            return
+        
+        text = language.getLang(user.lang)["list"]
+        for x in user.triggers:
+            text += language.getLang(user.lang)["list_item"].format(
+                x["text"],  
+                language.getLang(user.lang)["list_item_has_caption"] if x["caption"] != None else "", 
+                language.getLang(user.lang)["list_item_has_attachment"].format(x["attachment"]["type"]) if x["attachment"] != None else "")
 
+
+        bot.send_message(chat_id=update.message.chat_id, 
+            text=text,
+            reply_markup = { "remove_keyboard" : True },
+            parse_mode = telegram.ParseMode.MARKDOWN,
+            reply_to_message_id=update.message.message_id)
+        
     except Exception as ex:
         notify_admin(ex)
-
-WAITING_FOR_REGEX = 1
-WAITING_FOR_TRIGGER = 2
 
 def allInputHandler(bot, update):
       
@@ -204,6 +361,10 @@ def allInputHandler(bot, update):
                 pass
 
         else:
+            
+            if(not group.enabled):
+                return
+            
             if(update.message.caption != None):
                 textMessage = update.message.caption
 
