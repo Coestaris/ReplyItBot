@@ -76,7 +76,6 @@ def adm_dump(bot, update):
     except Exception as ex:
         notify_admin(ex)
 
-
 @send_typing_action
 @utils.restricted
 def adm_drop(bot, update):
@@ -127,18 +126,25 @@ def start(bot, update):
 def remove(bot, update):
     
     try:
-
         group = db.get_user(update.message.chat_id)
         user = update.message.from_user
+        
+        if(len(group.triggers) == 0):
+            bot.send_message(chat_id=update.message.chat_id, 
+                text=language.getLang(group.lang)["list_is_empty"],
+                reply_markup = { "remove_keyboard" : True },
+                reply_to_message_id=update.message.message_id)
+            return
 
         custom_keyboard = []
-        for group in user.vkGroups:
-            custom_keyboard.append([telegram.KeyboardButton(text=u"{} - {}".format(group["id"], group["name"]))])
-
+        i = 1
+        for x in group.triggers:
+            custom_keyboard.append([telegram.KeyboardButton(text=u"{} - \"{}\"".format(i, x["text"]))])
+            i += 1
 
         bot.send_message(chat_id=update.message.chat_id, 
             text=language.getLang(group.lang)["remove_trigger"],
-            reply_markup = Key,
+            reply_markup = telegram.ReplyKeyboardMarkup(custom_keyboard, resize_keyboard=True),
             reply_to_message_id=update.message.message_id)
 
         group.userActions[user.id] = {}
@@ -177,7 +183,6 @@ def add(bot, update):
 
     except Exception as ex:
         notify_admin(ex)
-
 
 @send_typing_action
 def enable(bot, update):
@@ -357,7 +362,42 @@ def allInputHandler(bot, update):
                 db.store_user(group)
                 return
 
-            else:
+            elif(group.userActions[str(user.id)]["i"] == WAITING_FOR_EX_TRIGGER):
+
+                try:
+                    parts = textMessage.split('-')[0]
+                    index = int(parts) - 1
+
+                    if(index < 0 or index >= len(group.triggers)):
+                        bot.send_message(chat_id=update.message.chat_id, 
+                            text=utils.escape_string(language.getLang(group.lang)["err_cant_find_item"]),
+                            reply_markup = { "remove_keyboard" : True },
+                            reply_to_message_id=update.message.message_id)
+
+                        del group.userActions[str(user.id)]
+                        db.store_user(group)
+                        return
+
+                    bot.send_message(chat_id=update.message.chat_id, 
+                            text=utils.escape_string(language.getLang(group.lang)["delete_ok"]),
+                            reply_markup = { "remove_keyboard" : True },
+                            reply_to_message_id=update.message.message_id)
+
+                    del group.triggers[index]
+                    del group.userActions[str(user.id)]
+                    db.store_user(group)
+
+                except IndexError:
+                    
+                    bot.send_message(chat_id=update.message.chat_id, 
+                            text=utils.escape_string(language.getLang(group.lang)["err_cant_find_item"]),
+                            reply_markup = { "remove_keyboard" : True },
+                            reply_to_message_id=update.message.message_id)
+
+                    del group.userActions[str(user.id)]
+                    db.store_user(group)
+                    return
+
                 pass
 
         else:
