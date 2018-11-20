@@ -23,8 +23,16 @@ WAITING_FOR_EX_TRIGGER = 3
 
 bot = None
 
+def checkUser(update):
+    if(not db.has_user(update.message.chat_id)):
+        user = dbUser.dbUser(teleid=update.message.chat_id, debugName=update.message.chat.title)
+        db.store_user(user)
+        return user
+    else:
+        return db.get_user(update.message.chat_id)
+
 def notify_admin(ex):
-    print("Error: {}\nAdmin has been notifyed".format(ex))
+    print("Error: {}\nAdmin has been notified".format(ex))
     for admin in cfg.globalCfg.admins:
         bot.send_message(
             chat_id=admin,
@@ -95,12 +103,13 @@ def adm_drop(bot, update):
         notify_admin(ex)
 
 def errorHandler(bot, update, error):
-    print(error)
     try:
+        print(error)
         if(update == None):
             raise TypeError("Update was error. Error is: " + str(error))
         else:
-            user = db.get_user(update.message.chat_id)
+            
+            user = checkUser(update)
             update.message.reply_text(language.getLang(user.lang)["server_error"], reply_markup = { "remove_keyboard" : True })
     
     except Exception as ex:
@@ -109,7 +118,8 @@ def errorHandler(bot, update, error):
 @send_typing_action
 def settings(bot, update):
     try:
-        group = db.get_user(update.message.chat_id)
+        
+        group = checkUser(update)
         bot.send_message(chat_id=update.message.chat_id, 
                 text=language.getLang(group.lang)["menu"],
                 reply_markup = menuHandler.get_main_menu(group, bot),
@@ -120,10 +130,9 @@ def settings(bot, update):
 
 
 def callback_inline(bot, update):
-
     try:
-        query = update.callback_query
 
+        query = update.callback_query
         user = db.get_user(query.message.chat_id)
         act = query.data
 
@@ -139,10 +148,8 @@ def callback_inline(bot, update):
 @send_typing_action
 def start(bot, update):
     try:
-        if(not db.has_user(update.message.chat_id)):
-            db.store_user(dbUser.dbUser(teleid=update.message.chat_id, debugName=update.message.chat.title))
-
-        user = db.get_user(update.message.chat_id)
+        
+        user = checkUser(update)
         update.message.reply_text(language.getLang(user.lang)["help"], reply_markup = { "remove_keyboard" : True })
     
     except Exception as ex:
@@ -150,9 +157,9 @@ def start(bot, update):
 
 @send_typing_action
 def remove(bot, update):
-    
+
     try:
-        group = db.get_user(update.message.chat_id)
+        group = checkUser(update)
         user = update.message.from_user
         
         if(len(group.triggers) == 0):
@@ -185,7 +192,7 @@ def remove(bot, update):
 def help(bot, update):
     
     try:
-        user = db.get_user(update.message.chat_id)
+        user = checkUser(update)
         update.message.reply_text(language.getLang(user.lang)["help"], reply_markup = { "remove_keyboard" : True })
 
     except Exception as ex:
@@ -194,7 +201,7 @@ def help(bot, update):
 @send_typing_action
 def add(bot, update):
     try:
-        group = db.get_user(update.message.chat_id)
+        group = checkUser(update)
         user = update.message.from_user
 
         bot.send_message(chat_id=update.message.chat_id, 
@@ -213,7 +220,7 @@ def add(bot, update):
 @send_typing_action
 def enable(bot, update):
     try:
-        group = db.get_user(update.message.chat_id)
+        group = checkUser(update)
         if(group.enabled):
             bot.send_message(chat_id=update.message.chat_id, 
                 text=language.getLang(group.lang)["err_bot_is_enabled"],
@@ -236,7 +243,7 @@ def enable(bot, update):
 @send_typing_action
 def disable(bot, update):
     try:
-        group = db.get_user(update.message.chat_id)
+        group = checkUser(update)
         if(not group.enabled):
             bot.send_message(chat_id=update.message.chat_id, 
                 text=language.getLang(group.lang)["err_bot_is_disabled"],
@@ -260,7 +267,7 @@ def disable(bot, update):
 def list(bot, update):
       
     try:
-        user = db.get_user(update.message.chat_id)
+        user = checkUser(update)
         if(len(user.triggers) == 0):
             bot.send_message(chat_id=update.message.chat_id, 
                 text=language.getLang(user.lang)["list_is_empty"],
@@ -270,15 +277,15 @@ def list(bot, update):
         
         text = language.getLang(user.lang)["list"]
         for x in user.triggers:
-            text += utils.escape_string(language.getLang(user.lang)["list_item"].format(
-                x["text"],  
+            text += language.getLang(user.lang)["list_item"].format(
+                utils.escape_string(x["text"]),  
                 language.getLang(user.lang)["list_item_has_caption"] if x["caption"] != None else "", 
-                language.getLang(user.lang)["list_item_has_attachment"].format(x["attachment"]["type"]) if x["attachment"] != None else ""))
+                language.getLang(user.lang)["list_item_has_attachment"].format(x["attachment"]["type"]) if x["attachment"] != None else "")
 
 
         bot.send_message(chat_id=update.message.chat_id, 
             text=text,
-            reply_markup = { "remove_keyboard" : True },
+            reply_markup = { "remove_keyboard" : True, "selective" : True },
             parse_mode = telegram.ParseMode.MARKDOWN,
             reply_to_message_id=update.message.message_id)
         
@@ -288,7 +295,7 @@ def list(bot, update):
 def allInputHandler(bot, update):
       
     try:
-        group = db.get_user(update.message.chat_id)
+        group = checkUser(update)
         user = update.message.from_user
         textMessage = update.message.text
 
@@ -435,6 +442,7 @@ def allInputHandler(bot, update):
 
             if(textMessage != None):
 
+                print group.ignoreCase
                 for trigger in group.triggers:
                     if(re.search(re.compile(trigger["text"], re.IGNORECASE if group.ignoreCase else 0), textMessage)):
 
