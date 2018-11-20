@@ -62,3 +62,5 @@ target/
 cfg\.json
 
 src/db\.json
+
+db\.json

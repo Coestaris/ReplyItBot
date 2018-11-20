@@ -442,9 +442,13 @@ def allInputHandler(bot, update):
 
             if(textMessage != None):
 
-                print group.ignoreCase
                 for trigger in group.triggers:
-                    if(re.search(re.compile(trigger["text"], re.IGNORECASE if group.ignoreCase else 0), textMessage)):
+                    
+                    if(group.ignoreCase):
+                        textMessage = textMessage.lower()
+
+                    regex = re.compile(trigger["text"], 0)
+                    if(regex.search(textMessage)):
 
                         if(trigger["attachment"] != None):
                             if(trigger["attachment"]["type"] == "photo"):
