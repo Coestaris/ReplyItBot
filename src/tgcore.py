@@ -244,10 +244,10 @@ def list(bot, update):
         
         text = language.getLang(user.lang)["list"]
         for x in user.triggers:
-            text += language.getLang(user.lang)["list_item"].format(
+            text += utils.escape_string(language.getLang(user.lang)["list_item"].format(
                 x["text"],  
                 language.getLang(user.lang)["list_item_has_caption"] if x["caption"] != None else "", 
-                language.getLang(user.lang)["list_item_has_attachment"].format(x["attachment"]["type"]) if x["attachment"] != None else "")
+                language.getLang(user.lang)["list_item_has_attachment"].format(x["attachment"]["type"]) if x["attachment"] != None else ""))
 
 
         bot.send_message(chat_id=update.message.chat_id, 
@@ -310,7 +310,6 @@ def allInputHandler(bot, update):
 
                 attachment = None
                 if(update.message.photo != None and len(update.message.photo) != 0):
-                    print update.message.photo
                     attachment = {
                         "file_id" : update.message.photo[-1].file_id,
                         "type" : "photo"
@@ -337,17 +336,17 @@ def allInputHandler(bot, update):
                     }
                 if(update.message.document != None):
                     attachment = {
-                        "file_id" : update.message.voice.document,
+                        "file_id" : update.message.document.file_id,
                         "type" : "document"
                     }
                 if(update.message.audio != None):
                     attachment = {
-                        "file_id" : update.message.video_note.audio,
+                        "file_id" : update.message.audio.fild_id,
                         "type" : "audio"
                     }
                 if(update.message.animation != None):
                     attachment = {
-                        "file_id" : update.message.video_note.animation,
+                        "file_id" : update.message.animation.fild_id,
                         "type" : "animation"
                     }
 
