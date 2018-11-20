@@ -11,6 +11,7 @@ import db
 import utils
 import cfg
 import language
+import menuHandler
 
 send_typing_action = utils.send_action(telegram.ChatAction.TYPING)
 send_upload_video_action = utils.send_action(telegram.ChatAction.UPLOAD_VIDEO)
@@ -106,18 +107,43 @@ def errorHandler(bot, update, error):
         notify_admin(ex)
 
 @send_typing_action
+def settings(bot, update):
+    try:
+        group = db.get_user(update.message.chat_id)
+        bot.send_message(chat_id=update.message.chat_id, 
+                text=language.getLang(group.lang)["menu"],
+                reply_markup = menuHandler.get_main_menu(group, bot),
+                reply_to_message_id=update.message.message_id)
+
+    except Exception as ex:
+        notify_admin(ex)
+
+
+def callback_inline(bot, update):
+
+    try:
+        query = update.callback_query
+
+        user = db.get_user(query.message.chat_id)
+        act = query.data
+
+        markup = menuHandler.get_menu(act, user, bot)
+        if(not isinstance(markup, telegram.InlineKeyboardMarkup)):
+            bot.delete_message(chat_id=query.message.chat_id, message_id=query.message.message_id)
+        else:
+            bot.edit_message_reply_markup(chat_id=query.message.chat_id, reply_markup = markup, message_id=query.message.message_id)
+
+    except Exception as ex:
+        notify_admin(ex)
+
+@send_typing_action
 def start(bot, update):
     try:
-        if(update.message.chat.type == telegram.chat.Chat.PRIVATE):
-            #todo
-            pass
-        else:
-        
-            if(not db.has_user(update.message.chat_id)):
-                db.store_user(dbUser.dbUser(teleid=update.message.chat_id, debugName=update.message.chat.title))
+        if(not db.has_user(update.message.chat_id)):
+            db.store_user(dbUser.dbUser(teleid=update.message.chat_id, debugName=update.message.chat.title))
 
-            user = db.get_user(update.message.chat_id)
-            update.message.reply_text(language.getLang(user.lang)["help"], reply_markup = { "remove_keyboard" : True })
+        user = db.get_user(update.message.chat_id)
+        update.message.reply_text(language.getLang(user.lang)["help"], reply_markup = { "remove_keyboard" : True })
     
     except Exception as ex:
         notify_admin(ex)
@@ -346,7 +372,7 @@ def allInputHandler(bot, update):
                     }
                 if(update.message.animation != None):
                     attachment = {
-                        "file_id" : update.message.animation.fild_id,
+                        "file_id" : update.message.animation.file_id,
                         "type" : "animation"
                     }
 
@@ -410,7 +436,7 @@ def allInputHandler(bot, update):
             if(textMessage != None):
 
                 for trigger in group.triggers:
-                    if(re.search(re.compile(trigger["text"]), textMessage)):
+                    if(re.search(re.compile(trigger["text"], re.IGNORECASE if group.ignoreCase else 0), textMessage)):
 
                         if(trigger["attachment"] != None):
                             if(trigger["attachment"]["type"] == "photo"):
