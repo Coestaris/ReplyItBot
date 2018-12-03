@@ -284,7 +284,7 @@ def list(bot, update):
 
 
         bot.send_message(chat_id=update.message.chat_id, 
-            text=text,
+            text=utils.escape_string(text),
             reply_markup = { "remove_keyboard" : True, "selective" : True },
             parse_mode = telegram.ParseMode.MARKDOWN,
             reply_to_message_id=update.message.message_id)
